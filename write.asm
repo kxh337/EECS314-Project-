@@ -1,5 +1,5 @@
     .data
-fin:    .asciiz "JoyToTheWorldSopAndAlto.mp3"      # filename for input
+fin:    .asciiz "Kalimba.mp3"      # filename for input
 fout:   .asciiz "testout.mp3"      # filename for output
 buffer: .space 32              # set aside a space of 32 characters
     .text
@@ -8,8 +8,8 @@ buffer: .space 32              # set aside a space of 32 characters
 #li $t1, 2
 #add $t3, $t0, $t1
 #la $t0, buffer
-li $t0, 0x20000000
-li $t3, 0x20400000
+li $t0, 0x10010020
+li $t3, 0x10400000
 #sb $t3, ($t0)
 
 #open a file for writing
@@ -47,8 +47,8 @@ syscall			# open a file (file descriptor returned in $v0)
 move $s6, $v0		# save the file descriptor 
 ###############################################################
 # Write to file just opened
-li $t0, 0x20000000
-li $t3, 0x20400000
+li $t0, 0x10010020
+li $t3, 0x103fffe0
 Write:
 li   $v0, 15		# system call for write to file
 move $a0, $s6		# file descriptor 
