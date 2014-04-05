@@ -42,7 +42,7 @@ jal AvailableCommand
 beq $s1, $zero, LoadFile
 la $t0, discardCmd
 jal AvailableCommand
-beq $s1, $zero, Test
+beq $s1, $zero, DiscardFile
 la $t0, saveCmd
 jal AvailableCommand
 beq $s1, $zero, SaveFile
@@ -181,6 +181,18 @@ la $t0, save
 jal PrintComplete
 j NextCommand
 ###############################################################
+
+DiscardFile:
+li $t0, 0x10010100
+li $t1, 0x10400000
+Discard:
+sw $zero, 0($t0)
+addi $t0, $t0, 4
+sub $t2, $t1, $t0
+bne $t2, $zero, Discard
+la $t0, discard
+jal PrintComplete
+j NextCommand
 
 Exit:
 # Exit the program
