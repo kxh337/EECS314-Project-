@@ -18,8 +18,8 @@ exit:		.asciiz "Exit"
 complete:	.asciiz " complete!\n"
 fin:		.space 16	# Space for input file name
 fout:		.space 16	# Space for output file name
-command: .space 4		# set aside a space for reading in commands
-buffer: .space 32		# set aside a space for reading in file data
+command: 	.space 4	# set aside a space for reading in commands
+buffer: 	.space 32	# set aside a space for reading in file data
     .text
     
 #Loop continuously, reading commands
@@ -48,13 +48,13 @@ jal AvailableCommand
 beq $s1, $zero, SaveFile
 la $t0, removeCmd
 jal AvailableCommand
-beq $s1, $zero, Test
+beq $s1, $zero, RemoveClip
 la $t0, copyCmd
 jal AvailableCommand
-beq $s1, $zero, Test
+beq $s1, $zero, CopyClip
 la $t0, insertCmd
 jal AvailableCommand
-beq $s1, $zero, Test
+beq $s1, $zero, InsertClip
 la $t0, exitCmd
 jal AvailableCommand
 beq $s1, $zero, Exit
@@ -184,7 +184,7 @@ j NextCommand
 
 DiscardFile:
 li $t0, 0x10010100
-li $t1, 0x10400000
+li $t1, 0x10200000
 Discard:
 sw $zero, 0($t0)
 addi $t0, $t0, 4
@@ -193,6 +193,93 @@ bne $t2, $zero, Discard
 la $t0, discard
 jal PrintComplete
 j NextCommand
+
+ClearData:
+li $t0, 0x10200000
+li $t1, 0x10400000
+Clear:
+sb $zero, 0($t0)
+addi $t0, $t0, 1
+sub $t2, $t1, $t0
+bne $t2, $zero, Clear
+jr $ra
+
+CopyClip:
+# COMPLETE? - could modify
+jal ClearData
+li $v0, 5
+syscall
+move $a0, $v0
+jal AddressFromSeconds
+move $t0, $v0
+li $v0, 5
+syscall
+move $a0, $v0
+jal AddressFromSeconds
+move $t1, $v0
+li $t2, 0x10200000
+li $t3, 0x10400000
+Copy:
+lb $t4, 0($t0)
+sb $t4, 0($t2)
+addi $t0, $t0, 1
+addi $t2, $t2, 1
+beq $t2, $t3, EndCopy
+bne $t0, $t1, Copy
+EndCopy:
+la $t0, copy
+jal PrintComplete
+j NextCommand
+
+RemoveClip:
+# INCOMPLETE
+li $v0, 5
+syscall
+move $t0, $v0
+li $v0, 5
+syscall
+move $t1, $v0
+la $t0, remove
+jal PrintComplete
+j NextCommand
+
+InsertClip:
+# INCOMPLETE
+li $v0, 5
+syscall
+move $t0, $v0
+la $t0, insert
+jal PrintComplete
+j NextCommand
+
+AddressFromSeconds:
+addi $sp, $sp, -20
+sw $ra, 16($sp)
+sw $t3, 12($sp)
+sw $t2, 8($sp)
+sw $t1, 4($sp)
+sw $t0, 0($sp)
+li $t0, 0x10010100
+addi $t0, $t0, 0x10
+lw $t1, 0($t0)
+lw $t2, 12($t0)
+add $t0, $t0, $t1
+addi $t0, $t0, 12
+add $t3, $zero, $zero
+AddressSearch:
+bge $t3, $a0, AddressFound
+addi $t3, $t3, 1
+add $t0, $t0, $t2
+j AddressSearch
+AddressFound:
+move $v0, $t0
+lw $t0, 0($sp)
+lw $t1, 4($sp)
+lw $t2, 8($sp)
+lw $t3, 12($sp)
+lw $ra, 16($sp)
+addi $sp, $sp, 20
+jr $ra
 
 Exit:
 # Exit the program
