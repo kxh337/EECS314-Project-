@@ -111,7 +111,7 @@ la $t0, fin
 jal RemoveNewLine
 
 li $t0, 0x10010100
-li $t3, 0x10400000
+li $t3, 0x10200000
 #sb $t3, ($t0)
 
 # Open a file for reading
@@ -138,6 +138,12 @@ bne  $t4, $zero, Read	# if not at the end of file, keep reading
 li   $v0, 16		# system call for close file
 move $a0, $s6		# file descriptor to close
 syscall			# close file
+li $t0, 0x10010100
+li $t1, 0x10200000
+sub $t1, $t1, $t0
+lw $t2, 4($t0)
+sub $a0, $t1, $t2
+jal UpdateFileSizeValues
 la $t0, load
 jal PrintComplete
 j NextCommand
@@ -161,7 +167,7 @@ move $s6, $v0		# save the file descriptor
 ###############################################################
 # Write to file just opened
 li $t0, 0x10010100
-li $t3, 0x103fffe0
+li $t3, 0x101fffe0
 Write:
 li   $v0, 15		# system call for write to file
 move $a0, $s6		# file descriptor 
@@ -235,10 +241,25 @@ RemoveClip:
 # INCOMPLETE
 li $v0, 5
 syscall
+move $a0, $v0
+jal AddressFromSeconds
 move $t0, $v0
 li $v0, 5
 syscall
+move $a0, $v0
+jal AddressFromSeconds
 move $t1, $v0
+move $t2, $t0
+move $t3, $t1
+li $t4, 0x10200000
+Remove:
+lb $t5, 0($t3)
+sb $t5, 0($t2)
+addi $t2, $t2, 1
+addi $t3, $t3, 1
+bne $t2, $t4, Remove
+sub $a0, $t0, $t1
+jal UpdateFileSizeValues
 la $t0, remove
 jal PrintComplete
 j NextCommand
@@ -260,11 +281,11 @@ sw $t2, 8($sp)
 sw $t1, 4($sp)
 sw $t0, 0($sp)
 li $t0, 0x10010100
-addi $t0, $t0, 0x10
-lw $t1, 0($t0)
-lw $t2, 12($t0)
+addi $t0, $t0, 16	# Go to format chunk size field
+lw $t1, 0($t0)		# Get format chunk size
+lw $t2, 12($t0)		# Get bytes per second value
 add $t0, $t0, $t1
-addi $t0, $t0, 12
+addi $t0, $t0, 12	# Go to start of sound data
 add $t3, $zero, $zero
 AddressSearch:
 bge $t3, $a0, AddressFound
@@ -279,6 +300,35 @@ lw $t2, 8($sp)
 lw $t3, 12($sp)
 lw $ra, 16($sp)
 addi $sp, $sp, 20
+jr $ra
+
+UpdateFileSizeValues:
+addi $sp, $sp, -20
+sw $ra, 16($sp)
+sw $t7, 12($sp)
+sw $t6, 8($sp)
+sw $t5, 4($sp)
+sw $t4, 0($sp)
+li $t4, 0x10010100
+addi $t4, $t4, 4	# Access file size field
+lw $t5, 0($t4)
+add $t5, $t5, $a0
+addi $t6, $t4, 12	# Access format chunk size field
+lw $t7, 0($t6)
+add $t6, $t6, $t7
+addi $t6, $t6, 8	# Access data chunk size field
+lw $t7, 0($t6)
+add $t7, $t7, $a0
+blt $t7, $zero, EndUpdate	# Can't make data size less than 0
+sw $t5, 0($t4)
+sw $t7, 0($t6)
+EndUpdate:
+lw $t4, 0($sp)
+lw $t5, 4($sp)
+lw $t6, 8($sp)
+lw $t7, 12($sp)
+lw $ra, 16($sp)
+addi $sp, $sp, 12
 jr $ra
 
 Exit:
