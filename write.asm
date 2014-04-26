@@ -6,6 +6,7 @@ saveCmd:	.asciiz "SV\n"
 removeCmd:	.asciiz "RM\n"
 copyCmd:	.asciiz "CP\n"
 insertCmd:	.asciiz "IN\n"
+overlayCmd:	.asciiz "OL\n"
 exitCmd:	.asciiz "EX\n"
 # Words which can be printed
 load:		.asciiz "Load"
@@ -14,6 +15,7 @@ save:		.asciiz "Save"
 remove:		.asciiz "Remove"
 copy:		.asciiz "Copy"
 insert:		.asciiz "Insert"
+overlay:	.asciiz "Overlay"
 exit:		.asciiz "Exit"
 complete:	.asciiz " complete!\n"
 fin:		.space 16	# Space for input file name
@@ -55,6 +57,9 @@ beq $s1, $zero, CopyClip
 la $t0, insertCmd
 jal AvailableCommand
 beq $s1, $zero, InsertClip
+la $t0, overlayCmd
+jal AvailableCommand
+beq $s1, $zero, OverlayClip
 la $t0, exitCmd
 jal AvailableCommand
 beq $s1, $zero, Exit
@@ -225,6 +230,13 @@ jal AddressFromSeconds
 move $t1, $v0
 li $t2, 0x10200000
 li $t3, 0x10400000
+sub $t4, $t1, $t0
+sub $t5, $t3, $t2
+bgt $t4, $t5, MaxMemory		# Check if section to copy greater than maximum memory available for it
+move $s2, $t4			# Load length of the copied section
+j Copy
+MaxMemory:
+move $s2, $t5			# Load length of the copied section
 Copy:
 lb $t4, 0($t0)
 sb $t4, 0($t2)
@@ -238,7 +250,7 @@ jal PrintComplete
 j NextCommand
 
 RemoveClip:
-# INCOMPLETE
+# COMPLETE
 li $v0, 5
 syscall
 move $a0, $v0
@@ -270,6 +282,36 @@ li $v0, 5
 syscall
 move $t0, $v0
 la $t0, insert
+jal PrintComplete
+j NextCommand
+
+OverlayClip:
+# COMPLETE? - Could add support for different data sizes (other than 16 bits)
+li $v0, 5
+syscall
+move $a0, $v0
+jal AddressFromSeconds
+move $t0, $v0
+li $t1, 0x10200000
+move $t2, $zero
+li $t3, 0x10010100
+addi $t3, $t3, 34
+lh $t4, 0($t3)
+li $t5, 16
+bne $t4, $t5, EndOverlay
+li $t6, 0x10400000
+Overlay:
+lh $t3, 0($t0)
+lh $t4, 0($t1)
+add $t4, $t3, $t4
+sh $t4, 0($t0)
+addi $t0, $t0, 2
+addi $t1, $t1, 2
+beq $t1, $t6, EndOverlay
+addi $t2, $t2, 2
+blt $t2, $s2, Overlay
+EndOverlay:
+la $t0, overlay
 jal PrintComplete
 j NextCommand
 
