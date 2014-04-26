@@ -7,6 +7,8 @@ removeCmd:	.asciiz "RM\n"
 copyCmd:	.asciiz "CP\n"
 insertCmd:	.asciiz "IN\n"
 overlayCmd:	.asciiz "OL\n"
+volumeUpCmd:	.asciiz "V+\n"
+volumeDownCmd:	.asciiz "V-\n"
 exitCmd:	.asciiz "EX\n"
 # Words which can be printed
 load:		.asciiz "Load"
@@ -16,6 +18,8 @@ remove:		.asciiz "Remove"
 copy:		.asciiz "Copy"
 insert:		.asciiz "Insert"
 overlay:	.asciiz "Overlay"
+volumeUp:	.asciiz "VolumeUp"
+volumeDown:	.asciiz "VolumeDown"
 exit:		.asciiz "Exit"
 complete:	.asciiz " complete!\n"
 fin:		.space 16	# Space for input file name
@@ -60,6 +64,12 @@ beq $s1, $zero, InsertClip
 la $t0, overlayCmd
 jal AvailableCommand
 beq $s1, $zero, OverlayClip
+la $t0, volumeUpCmd
+jal AvailableCommand
+beq $s1, $zero, VolumeUpFile
+la $t0, volumeDownCmd
+jal AvailableCommand
+beq $s1, $zero, VolumeDownFile
 la $t0, exitCmd
 jal AvailableCommand
 beq $s1, $zero, Exit
@@ -148,7 +158,9 @@ li $t1, 0x10200000
 sub $t1, $t1, $t0
 lw $t2, 4($t0)
 sub $a0, $t1, $t2
+bgt $a0, $zero, PrintLoadResults
 jal UpdateFileSizeValues
+PrintLoadResults:
 la $t0, load
 jal PrintComplete
 j NextCommand
@@ -312,6 +324,51 @@ addi $t2, $t2, 2
 blt $t2, $s2, Overlay
 EndOverlay:
 la $t0, overlay
+jal PrintComplete
+j NextCommand
+
+VolumeUpFile:
+li $a0, 1
+j VolumeChangeFile
+
+VolumeDownFile:
+li $a0, -1
+j VolumeChangeFile
+
+VolumeChangeFile:
+# INCOMPLETE
+li $t0, 0x10010100
+addi $t0, $t0, 16	# Go to format chunk size field
+lw $t1, 0($t0)		# Get format chunk size
+add $t0, $t0, $t1	
+addi $t0, $t0, 8	# Go to data chunk size
+lw $t1, 0($t0)
+addi $t0, $t0, 4	# Go to start of data
+li $t2, 0
+li $t3, 0x10010100
+addi $t3, $t3, 34
+lh $t4, 0($t3)
+li $t5, 16
+bne $t4, $t5, EndVolumeChange
+VolumeChange:
+lh $t3, 0($t0)
+bgt $a0, $zero, VolumeUp
+sra $t3, $t3, 1		# Lower volume by factor of 2
+j VolumeChanged
+VolumeUp:
+sll $t3, $t3, 1		# Raise volume by factor of 2
+VolumeChanged:
+sh $t3, 0($t0)
+addi $t0, $t0, 2
+addi $t2, $t2, 2
+blt $t2, $t1, VolumeChange
+EndVolumeChange:
+bgt $a0, $zero, VolUpPrint
+la $t0, volumeDown
+jal PrintComplete
+j NextCommand
+VolUpPrint:
+la $t0, volumeUp
 jal PrintComplete
 j NextCommand
 
