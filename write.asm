@@ -5,6 +5,7 @@ discardCmd:	.asciiz "DC\n"
 saveCmd:	.asciiz "SV\n"
 removeCmd:	.asciiz "RM\n"
 copyCmd:	.asciiz "CP\n"
+addCmd:		.asciiz "AD\n"
 insertCmd:	.asciiz "IN\n"
 overlayCmd:	.asciiz "OL\n"
 volumeUpCmd:	.asciiz "V+\n"
@@ -16,6 +17,7 @@ discard:	.asciiz "Discard"
 save:		.asciiz "Save"
 remove:		.asciiz "Remove"
 copy:		.asciiz "Copy"
+addName:	.asciiz "Add"
 insert:		.asciiz "Insert"
 overlay:	.asciiz "Overlay"
 volumeUp:	.asciiz "VolumeUp"
@@ -58,6 +60,9 @@ beq $s1, $zero, RemoveClip
 la $t0, copyCmd
 jal AvailableCommand
 beq $s1, $zero, CopyClip
+la $t0, addCmd
+jal AvailableCommand
+beq $s1, $zero, AddClip
 la $t0, insertCmd
 jal AvailableCommand
 beq $s1, $zero, InsertClip
@@ -261,6 +266,38 @@ la $t0, copy
 jal PrintComplete
 j NextCommand
 
+AddClip:
+# COMPLETE? -Seems to be working, may require more testing
+li $t0, 0x10010100
+addi $t0, $t0, 4
+lw $t1, 0($t0)
+addi $t0, $t0, 4
+add $t0, $t0, $t1
+li $t1, 0x10200000
+bge $t0, $t1, PrintAddComplete
+move $t2, $t0
+move $t3, $t1
+li $t5, 0x10400000
+li $t6, 0
+Add:
+lb $t4, 0($t3)
+sb $t4, 0($t2)
+addi $t2, $t2, 1
+addi $t3, $t3, 1
+beq $t3, $t5, AddMaxMemory
+addi $t6, $t6, 1
+bne $t6, $s2, Add
+move $a0, $s2
+jal UpdateFileSizeValues
+j PrintAddComplete
+AddMaxMemory:
+sub $a0, $t5, $t1
+jal UpdateFileSizeValues
+PrintAddComplete:
+la $t0, addName
+jal PrintComplete
+j NextCommand
+
 RemoveClip:
 # COMPLETE
 li $v0, 5
@@ -336,7 +373,7 @@ li $a0, -1
 j VolumeChangeFile
 
 VolumeChangeFile:
-# INCOMPLETE
+# COMPLETE
 li $t0, 0x10010100
 addi $t0, $t0, 16	# Go to format chunk size field
 lw $t1, 0($t0)		# Get format chunk size
