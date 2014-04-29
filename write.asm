@@ -329,7 +329,36 @@ InsertClip:
 # INCOMPLETE
 li $v0, 5
 syscall
+move $a0, $v0
+jal AddressFromSeconds
 move $t0, $v0
+li $t1, 0x10010100
+addi $t4, $t1, 4
+lw $t2, 0($t4)
+addi $t4, $t1, 4
+add $t1, $t1, $t2    #current total file size
+li $t2, 0x10200000
+add $t4, $t1, $s2    #total data size with insertion 
+subi $t1, $t1,1
+move $t3 $t1
+bge $t4, $t2, PrintInsertComplete
+Shift:  		#makes space for the insertion
+lb $t2, 0($t1)
+sb $t2, 0($t4)
+subi $t1, $t1, 1
+subi $t4, $t4, 1
+bne   $t3, $t4, Shift
+add $t3, $t0, $s2
+Insert:			#inerts the data in the space
+li $t2, 0x10200000
+lb $t4, 0($t2)
+sb $t4, 0($t0)
+addi $t2, $t2, 1
+addi $t0, $t0, 1
+bne $t3, $t0, Insert
+move $a0 $s2
+jal UpdateFileSizeValues
+PrintInsertComplete:
 la $t0, insert
 jal PrintComplete
 j NextCommand
