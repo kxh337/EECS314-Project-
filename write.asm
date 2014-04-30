@@ -270,9 +270,9 @@ AddClip:
 # COMPLETE? -Seems to be working, may require more testing
 li $t0, 0x10010100
 addi $t0, $t0, 4
-lw $t1, 0($t0)
+lw $t1, 0($t0)     #file size
 addi $t0, $t0, 4
-add $t0, $t0, $t1
+add $t0, $t0, $t1  #address at the end of the file
 li $t1, 0x10200000
 bge $t0, $t1, PrintAddComplete
 move $t2, $t0
@@ -334,23 +334,22 @@ jal AddressFromSeconds
 move $t0, $v0
 li $t1, 0x10010100
 addi $t4, $t1, 4
-lw $t2, 0($t4)
+lw $t2, 0($t4)	     #get file size
 addi $t4, $t1, 4
-add $t1, $t1, $t2    #current total file size
+add $t1, $t1, $t2    #address at the end of the file
 li $t2, 0x10200000
-add $t4, $t1, $s2    #total data size with insertion 
-subi $t1, $t1,1
+add $t4, $t1, $s2    #address of the end of file + insertion 1      
 move $t3 $t1
-bge $t4, $t2, PrintInsertComplete
+#bge $t4, $t2, PrintInsertComplete
 Shift:  		#makes space for the insertion
 lb $t2, 0($t1)
 sb $t2, 0($t4)
 subi $t1, $t1, 1
 subi $t4, $t4, 1
 bne   $t3, $t4, Shift
-add $t3, $t0, $s2
-Insert:			#inerts the data in the space
+add $t3, $t0, $s2	#insert point + copied data
 li $t2, 0x10200000
+Insert:			#inerts the data in the space
 lb $t4, 0($t2)
 sb $t4, 0($t0)
 addi $t2, $t2, 1
