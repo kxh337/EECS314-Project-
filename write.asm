@@ -335,12 +335,12 @@ move $t0, $v0
 li $t1, 0x10010100
 addi $t4, $t1, 4
 lw $t2, 0($t4)	     #get file size
-addi $t4, $t1, 4
-add $t1, $t1, $t2    #address at the end of the file
+addi $t4, $t4, 4
 li $t2, 0x10200000
-add $t4, $t1, $s2    #address of the end of file + insertion 1      
-move $t3 $t1
-#bge $t4, $t2, PrintInsertComplete
+add $t1, $t2, $s2    #address of end  of copy data
+add $t4, $t1, $s2    #address of end  of copy data  + copy data  
+add $t3, $t0, $s2
+move $t5 $t1
 Shift:  		#makes space for the insertion
 lb $t2, 0($t1)
 sb $t2, 0($t4)
@@ -348,9 +348,10 @@ subi $t1, $t1, 1
 subi $t4, $t4, 1
 bne   $t3, $t4, Shift
 add $t3, $t0, $s2	#insert point + copied data
-li $t2, 0x10200000
+move $t2, $t5		#Beginning of shifted copy data	
 Insert:			#inerts the data in the space
 lb $t4, 0($t2)
+sb $zero, 0($t2)
 sb $t4, 0($t0)
 addi $t2, $t2, 1
 addi $t0, $t0, 1
@@ -465,6 +466,8 @@ lw $t3, 12($sp)
 lw $ra, 16($sp)
 addi $sp, $sp, 20
 jr $ra
+
+
 
 UpdateFileSizeValues:
 addi $sp, $sp, -20
