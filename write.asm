@@ -10,6 +10,8 @@ insertCmd:	.asciiz "IN\n"
 overlayCmd:	.asciiz "OL\n"
 volumeUpCmd:	.asciiz "V+\n"
 volumeDownCmd:	.asciiz "V-\n"
+speedUpCmd:	.asciiz "S+\n"
+slowDownCmd:	.asciiz "S-\n"
 exitCmd:	.asciiz "EX\n"
 # Words which can be printed
 load:		.asciiz "Load"
@@ -22,6 +24,8 @@ insert:		.asciiz "Insert"
 overlay:	.asciiz "Overlay"
 volumeUp:	.asciiz "VolumeUp"
 volumeDown:	.asciiz "VolumeDown"
+speedUp:	.asciiz "SpeedUp"
+slowDown:	.asciiz "SlowDown"
 exit:		.asciiz "Exit"
 complete:	.asciiz " complete!\n"
 fin:		.space 16	# Space for input file name
@@ -75,6 +79,12 @@ beq $s1, $zero, VolumeUpFile
 la $t0, volumeDownCmd
 jal AvailableCommand
 beq $s1, $zero, VolumeDownFile
+la $t0, speedUpCmd
+jal AvailableCommand
+beq $s1, $zero, SpeedUpFile
+la $t0, slowDownCmd
+jal AvailableCommand
+beq $s1, $zero, SlowDownFile
 la $t0, exitCmd
 jal AvailableCommand
 beq $s1, $zero, Exit
@@ -86,7 +96,7 @@ li $v0, 4
 syscall
 j NextCommand
 
-AvailableCommand:
+AvailableCommand:	# Compare the received command with one of the available commands to see which one it is
 lb $t1, 0($t0)
 sll $t1, $t1, 8
 lb $t2, 1($t0)
@@ -97,7 +107,7 @@ or $s1, $t1, $t2
 sub $s1, $s1, $s0
 jr $ra
 
-PrintComplete:
+PrintComplete:		# Print a message indicating that this command has finished running
 la $a0, 0($t0)
 li $v0, 4
 syscall
@@ -106,7 +116,7 @@ li $v0, 4
 syscall
 jr $ra
 
-RemoveNewLine:
+RemoveNewLine:		# Remove newline character from an entered command
 la $t1, 0($t0)
 CharacterLoop:
 lb $t2, 0($t1)
@@ -115,13 +125,9 @@ bne $t2, $zero, CharacterLoop
 subi $t1, $t1, 2
 sb $zero, 0($t1)
 jr $ra
-    
-#li $t0, 1
-#li $t1, 2
-#add $t3, $t0, $t1
-#la $t0, buffer
 
-LoadFile:
+
+LoadFile:		# Load the audio data to work with from a given file
 # Read in name of file to use as input
 li $v0, 8
 la $a0, fin
@@ -132,7 +138,6 @@ jal RemoveNewLine
 
 li $t0, 0x10010100
 li $t3, 0x10200000
-#sb $t3, ($t0)
 
 # Open a file for reading
 li   $v0, 13		# system call for open file
@@ -158,6 +163,7 @@ bne  $t4, $zero, Read	# if not at the end of file, keep reading
 li   $v0, 16		# system call for close file
 move $a0, $s6		# file descriptor to close
 syscall			# close file
+# Adjust audio file size to reflect limited memory space (file is truncated if too long)
 li $t0, 0x10010100
 li $t1, 0x10200000
 sub $t1, $t1, $t0
@@ -170,7 +176,8 @@ la $t0, load
 jal PrintComplete
 j NextCommand
 
-SaveFile:
+SaveFile:		# Save the manipulated audio data to a specified file
+# Read in the file name entered
 li $v0, 8
 la $a0, fout
 li $a1, 16
@@ -210,7 +217,7 @@ jal PrintComplete
 j NextCommand
 ###############################################################
 
-DiscardFile:
+DiscardFile:		# Discard the main audio file data being worked with (used if we want to load another file instead)
 li $t0, 0x10010100
 li $t1, 0x10200000
 Discard:
@@ -222,7 +229,7 @@ la $t0, discard
 jal PrintComplete
 j NextCommand
 
-ClearData:
+ClearData:		# Clear the data stored in the copy section of the memory
 li $t0, 0x10200000
 li $t1, 0x10400000
 Clear:
@@ -232,8 +239,8 @@ sub $t2, $t1, $t0
 bne $t2, $zero, Clear
 jr $ra
 
-CopyClip:
-# COMPLETE? - could modify
+CopyClip:		# Copy an audio clip from the main audio file section of memory to the copy section of memory
+# Get memory address values corresponding to second values provided in the command
 jal ClearData
 li $v0, 5
 syscall
@@ -266,8 +273,7 @@ la $t0, copy
 jal PrintComplete
 j NextCommand
 
-AddClip:
-# COMPLETE? -Seems to be working, may require more testing
+AddClip:		# Add the data in the copy section to the end of the audio file data (if there is room)
 li $t0, 0x10010100
 addi $t0, $t0, 4
 lw $t1, 0($t0)     #file size
@@ -279,6 +285,7 @@ move $t2, $t0
 move $t3, $t1
 li $t5, 0x10400000
 li $t6, 0
+# Loop through all the copy data, copying it to the end of the audio file data
 Add:
 lb $t4, 0($t3)
 sb $t4, 0($t2)
@@ -298,8 +305,8 @@ la $t0, addName
 jal PrintComplete
 j NextCommand
 
-RemoveClip:
-# COMPLETE
+RemoveClip:		# Removes the specified section of audio data from the audio file data
+# Read in the second values between which to remove audio data
 li $v0, 5
 syscall
 move $a0, $v0
@@ -313,6 +320,7 @@ move $t1, $v0
 move $t2, $t0
 move $t3, $t1
 li $t4, 0x10200000
+# Write over each data byte in the indicated section
 Remove:
 lb $t5, 0($t3)
 sb $t5, 0($t2)
@@ -325,8 +333,7 @@ la $t0, remove
 jal PrintComplete
 j NextCommand
 
-InsertClip:
-# INCOMPLETE
+InsertClip:		# Insert the data in the copy section into the specified location in the audio file section of memory
 li $v0, 5
 syscall
 move $a0, $v0
@@ -349,7 +356,7 @@ subi $t4, $t4, 1
 bne   $t3, $t4, Shift
 add $t3, $t0, $s2	#insert point + copied data
 move $t2, $t5		#Beginning of shifted copy data	
-Insert:			#inerts the data in the space
+Insert:			#inserts the data in the space
 lb $t4, 0($t2)
 sb $zero, 0($t2)
 sb $t4, 0($t0)
@@ -363,8 +370,7 @@ la $t0, insert
 jal PrintComplete
 j NextCommand
 
-OverlayClip:
-# COMPLETE? - Could add support for different data sizes (other than 16 bits)
+OverlayClip:		# Add one audio clip to another so that both play simultaneously
 li $v0, 5
 syscall
 move $a0, $v0
@@ -378,6 +384,7 @@ lh $t4, 0($t3)
 li $t5, 16
 bne $t4, $t5, EndOverlay
 li $t6, 0x10400000
+# Loop through the data in the copy section and add it to the appropriate data in the audio file section
 Overlay:
 lh $t3, 0($t0)
 lh $t4, 0($t1)
@@ -393,16 +400,69 @@ la $t0, overlay
 jal PrintComplete
 j NextCommand
 
-VolumeUpFile:
+SpeedUpFile:			# Increase the frequency at which the audio file is played
+li $a3, 1
+j SpeedChangeFile
+
+SlowDownFile:			# Decrease the frequency at which the audio file is played
+li $a3, -1
+j SpeedChangeFile
+
+SpeedChangeFile:		# Change the frequency at which the audio data is played
+li $t0, 0x10010100
+addi $t0, $t0, 22
+lh $t5, 0($t0)
+lw $t1, 2($t0)
+lw $t2, 6($t0)
+lh $t3, 12($t0)
+li $t4, 1
+bgt $a3, $zero, SpeedUp
+SlowDown:
+subi $t1, $t1, 5000
+move $t2, $t1
+# Multiply by bits per sample
+mult $t2, $t3
+mflo $t2
+# Multiply by number of channels
+mult $t2, $t5
+mflo $t2
+# Divide by 8
+sra $t2, $t2, 3
+j SaveSpeedChange
+SpeedUp:
+addi $t1, $t1, 5000
+move $t2, $t1
+# Multiply by bits per sample
+mult $t2, $t3
+mflo $t2
+# Multiply by number of channels
+mult $t2, $t5
+mflo $t2
+# Divide by 8
+sra $t2, $t2, 3
+SaveSpeedChange:
+sw $t1, 2($t0)
+sw $t2, 6($t0)
+bgt $a3, $zero, SpeedUpPrint
+SlowDownPrint:
+la $t0, slowDown
+jal PrintComplete
+j NextCommand
+SpeedUpPrint:
+la $t0, speedUp
+jal PrintComplete
+j NextCommand
+
+
+VolumeUpFile:		# Increase the volume of the WAV file
 li $a0, 1
 j VolumeChangeFile
 
-VolumeDownFile:
+VolumeDownFile:		# Decrease the volume of the WAV file
 li $a0, -1
 j VolumeChangeFile
 
-VolumeChangeFile:
-# COMPLETE
+VolumeChangeFile:	# Adjust the volume of the file up or down, depending on the command given
 li $t0, 0x10010100
 addi $t0, $t0, 16	# Go to format chunk size field
 lw $t1, 0($t0)		# Get format chunk size
@@ -429,6 +489,7 @@ addi $t0, $t0, 2
 addi $t2, $t2, 2
 blt $t2, $t1, VolumeChange
 EndVolumeChange:
+# Print the appropriate message - "volume up complete" or "volume down complete"
 bgt $a0, $zero, VolUpPrint
 la $t0, volumeDown
 jal PrintComplete
@@ -438,7 +499,7 @@ la $t0, volumeUp
 jal PrintComplete
 j NextCommand
 
-AddressFromSeconds:
+AddressFromSeconds:		# Get the memory address containing the audio data corresponding to an input seconds value
 addi $sp, $sp, -20
 sw $ra, 16($sp)
 sw $t3, 12($sp)
@@ -469,7 +530,7 @@ jr $ra
 
 
 
-UpdateFileSizeValues:
+UpdateFileSizeValues:		# Adjust file size to account for inserts or deletions of data
 addi $sp, $sp, -20
 sw $ra, 16($sp)
 sw $t7, 12($sp)
